@@ -1,0 +1,77 @@
+@font-face {
+  font-family: "LovelyCoffee";
+  src: url("fonts/LovelyCoffee.woff2") format('woff2');
+}
+
+body {
+  width: 1920px;
+  height: 1080px;
+	margin: 0px;
+	background-color: black;
+  overflow: hidden;
+}
+  
+#main {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  color: #EDE6D6;
+	background-color: black;
+  font: 600pt "LovelyCoffee"; 
+  text-align: center;
+  text-shadow: 00px 5px 5px white;
+
+  animation-duration: 1s;
+  animation-fill-mode: forwards;
+  animation-timing-function: ease;
+}
+
+#word {
+  animation-duration: 1s;
+  animation-fill-mode: forwards;
+  animation-timing-function: ease;
+}
+
+@keyframes dissolve-in {
+  0% { 
+    transform: scale(0.7);
+    filter: blur(4px);
+    opacity: 0.0; 
+  }
+  100% { 
+    transform: scale(1.0);
+    filter: blur(0px);
+    opacity: 1.0; 
+  }
+}
+
+@keyframes dissolve-out {
+  0% { 
+    transform: scale(1.0);
+    filter: blur(0px);
+    opacity: 1.0; 
+  }
+  100% { 
+    transform: scale(2.0);
+    filter: blur(4px);
+    opacity: 0.0; 
+  }
+}
+
+@keyframes fade-in {
+  0% { 
+    opacity: 0.0; 
+  }
+  100% { 
+    opacity: 1.0; 
+  }
+}
+
+@keyframes fade-out {
+  0% { 
+    opacity: 1.0; 
+  }
+  100% { 
+    opacity: 0.0; 
+  }
+}
