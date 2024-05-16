@@ -1,3 +1,4 @@
+const videoLink = "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate";
 const textSeconds = 8;
 const words = ["chocolate", "delicious", "delightful", "dark", "rich",
   "smooth", "creamy", "velvety", "lovely", "coffee", "mocha"];
@@ -8,17 +9,6 @@ const colors = [
   "#EDE6D6", // white chocolate
   "#D2691E", // caramel
 ];
-const videos = [
-  "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate0.mpd",
-  "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate1.mpd",
-  "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate2.mpd",
-  "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate3.mpd", 
-  "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate4.mpd", 
-  "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate5.mpd", 
-  "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate6.mpd", 
-  "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate7.mpd", 
-  "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate8.mpd", 
-  "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate9.mpd"];
 
 window.addEventListener("load", async () => {
   try {
@@ -47,10 +37,12 @@ document.addEventListener("keydown", async function(event) {
 });
 
 function updateText(value = null) {
+  // get three unique random colors
   let someColors = shuffleArray(colors);
   main.style.backgroundColor = someColors.shift();
   main.style.color = someColors.shift();
   main.style.textShadow = "00px 7px 7px " + someColors.shift();
+
   word.innerHTML = value || randomObject(words);
   word.style.animationName = "dissolve-in";
   main.style.animationName = "fade-in";
@@ -58,14 +50,12 @@ function updateText(value = null) {
   setTimeout(async () => {
     word.style.animationName = "dissolve-out";
     main.style.animationName = "fade-out";
-    setTimeout(async () => {
-      await playVideo();
-    }, 1000);
+    setTimeout(async () => await playVideo(), 1000);
   }, textSeconds * 1000);
 }
 
 async function playVideo() {
-  let url = randomObject(videos);
+  let url = videoLink + randomNumber(0, 9) + ".mpd";
   await hs.remotePlayer.load(url);
   await hs.remotePlayer.play();
 }
@@ -76,8 +66,11 @@ function shuffleArray(array) {
     const j = Math.floor(Math.random() * (i + 1));
     [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
   }
-  
   return newArray;
+}
+
+function randomNumber(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function randomObject(array) {
