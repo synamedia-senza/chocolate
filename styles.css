@@ -6,8 +6,8 @@
 body {
   width: 1920px;
   height: 1080px;
-	margin: 0px;
-	background-color: black;
+  margin: 0px;
+  background-color: black;
   overflow: hidden;
 }
   
@@ -16,7 +16,7 @@ body {
   width: 1920px;
   height: 1080px;
   color: #EDE6D6;
-	background-color: black;
+  background-color: black;
   font: 600pt "LovelyCoffee"; 
   text-align: center;
   text-shadow: 00px 5px 5px white;
