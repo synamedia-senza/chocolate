@@ -12,16 +12,16 @@ const colors = [
 
 window.addEventListener("load", async () => {
   try {
-    await hs.init();
+    await senza.init();
 
     updateText("chocolate");
     
     remotePlayer.addEventListener("ended", () => {
       updateText();
-      hs.lifecycle.moveToForeground();
+      senza.lifecycle.moveToForeground();
     });
 
-    hs.uiReady();
+    senza.uiReady();
   } catch (error) {
     console.error(error);
   }
@@ -30,7 +30,7 @@ window.addEventListener("load", async () => {
 document.addEventListener("keydown", async function(event) {
 	switch (event.key) {
     case "Enter": await playVideo(); break;
-    case "Escape": hs.lifecycle.moveToForeground(); updateText(); break;
+    case "Escape": senza.lifecycle.moveToForeground(); updateText(); break;
 		default: return;
 	}
 	event.preventDefault();
@@ -56,8 +56,8 @@ function updateText(value = null) {
 
 async function playVideo() {
   let url = videoLink + randomNumber(0, 9) + ".mpd";
-  await hs.remotePlayer.load(url);
-  await hs.remotePlayer.play();
+  await senza.remotePlayer.load(url);
+  await senza.remotePlayer.play();
 }
 
 function shuffleArray(array) {
