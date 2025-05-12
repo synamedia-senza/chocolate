@@ -1,4 +1,4 @@
-const videoLink = "https://senza-developer.s3.amazonaws.com/streams/chocolate-v2/chocolate";
+const videoLink = "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate";
 const textSeconds = 8;
 const words = ["chocolate", "delicious", "delightful", "dark", "rich",
   "smooth", "creamy", "velvety", "lovely", "coffee", "mocha"];
@@ -59,7 +59,7 @@ function updateText(value = null) {
 }
 
 async function playVideo() {
-  let url = videoLink + randomNumber(0, 0) + ".mpd";
+  let url = videoLink + randomNumber(0, 9) + ".mpd";
   console.log("playing", url);
   try {
     await senza.remotePlayer.load(url);
