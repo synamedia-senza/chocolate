@@ -1,4 +1,4 @@
-const videoLink = "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate";
+const videoLink = "https://senza-developer.s3.amazonaws.com/streams/chocolate-v2/chocolate";
 const textSeconds = 8;
 const words = ["chocolate", "delicious", "delightful", "dark", "rich",
   "smooth", "creamy", "velvety", "lovely", "coffee", "mocha"];
@@ -10,13 +10,17 @@ const colors = [
   "#D2691E", // caramel
 ];
 
+let stopwatch;
+
 window.addEventListener("load", async () => {
   try {
     await senza.init();
 
     updateText("chocolate");
     
-    remotePlayer.addEventListener("ended", () => {
+    stopwatch = new Stopwatch();
+
+    senza.remotePlayer.addEventListener("ended", () => {
       updateText();
       senza.lifecycle.moveToForeground();
     });
@@ -55,9 +59,15 @@ function updateText(value = null) {
 }
 
 async function playVideo() {
-  let url = videoLink + randomNumber(0, 9) + ".mpd";
-  await senza.remotePlayer.load(url);
-  await senza.remotePlayer.play();
+  let url = videoLink + randomNumber(0, 0) + ".mpd";
+  console.log("playing", url);
+  try {
+    await senza.remotePlayer.load(url);
+    await senza.remotePlayer.play();
+    await senza.lifecycle.moveToBackground();
+  } catch (e) {
+    console.error("error playing", e)
+  }
 }
 
 function shuffleArray(array) {
