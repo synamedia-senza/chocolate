@@ -44,6 +44,7 @@ class Stopwatch {
   }
 
   movedToForeground() {
+    setTimeout(() => this.banner.style.color = 'white', 500);
     if (this.backgroundTime) {
       this.background += Math.ceil((Date.now() - this.backgroundTime) / 1000);
     }
@@ -51,6 +52,7 @@ class Stopwatch {
   }
 
   movedToBackground() {
+    this.banner.style.color = 'red';
     this.backgroundTime = Date.now();
     this.stop();
     this.save();
