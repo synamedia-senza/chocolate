@@ -18,11 +18,11 @@ window.addEventListener("load", async () => {
     stopwatch = new Stopwatch();
 
     if (senza.lifecycle.connectReason == senza.lifecycle.ConnectReason.INITIAL_CONNECTION) {
-      stepOne();
+      showWord();
     }
-    
-    senza.remotePlayer.addEventListener("ended", () => stepOne());
-    senza.alarmManager.addEventListener("stepThree", (e) => stepThree());
+
+    senza.remotePlayer.addEventListener("ended", () => showWord());
+    senza.alarmManager.addEventListener("hideWord", (e) => hideWord());
     
     senza.uiReady();
   } catch (error) {
@@ -30,40 +30,51 @@ window.addEventListener("load", async () => {
   }
 });
 
-async function stepOne(value = null) {
+// Step 1
+async function showWord(value = null) {
   if (senza.lifecycle.state != senza.lifecycle.UiState.FOREGROUND) {
     await senza.lifecycle.moveToForeground();
   }
   updateState(value);
-  await animateTextIn();
-  await sleep(2);
-  stepTwo();
+  word.style.animationName = "dissolve-in";
+  main.style.animationName = "fade-in";
+  await sleep(3);
+  freezeScreen();
 }
 
-async function stepTwo() {
-  await senza.remotePlayer.unload();
+// Step 2
+async function freezeScreen() {
+  // work around a bug where remote player is still playing after end of stream
+  if (senza.remotePlayer._isPlaying) {
+    await senza.remotePlayer.pause();
+  }
   await senza.lifecycle.moveToBackground();
-  senza.alarmManager.addAlarm("stepThree", Date.now() + 10 * 1000);
+  senza.alarmManager.addAlarm("hideWord", Date.now() + 10 * 1000);
 }
 
-async function stepThree() {
+// Step 3
+async function hideWord() {
   restoreState();
   await senza.lifecycle.moveToForeground();
   await sleep(2);
-  await animateTextOut();
-  stepFour();
+  word.style.animationName = "dissolve-out";
+  main.style.animationName = "fade-out";
+  await sleep(1);
+  playVideo();
 }
 
-async function stepFour() {
-  sessionStorage.clear();
-  await playVideo();
+// Step 4
+async function playVideo() {
+  let url = videoLink + randomNumber(0, 9) + ".mpd";
+  await senza.remotePlayer.load(url);
+  await senza.remotePlayer.play();
   await senza.lifecycle.moveToBackground();
 }
 
 document.addEventListener("keydown", async function(event) {
 	switch (event.key) {
-    case "Escape": stepOne(); break;
-    case "Enter": stepFour(); break;
+    case "Escape": showWord();break;
+    case "Enter": playVideo();break;
 		default: return;
 	}
 	event.preventDefault();
@@ -79,56 +90,26 @@ function updateState(value = null) {
     "backgroundColor": someColors.shift(), 
     "color": someColors.shift(),
     "textShadow": "00px 7px 7px " + someColors.shift() 
-  }; 
-  applyStyle(mainStyle); 
-  word.innerHTML = value || randomObject(words); 
-  
+  };
+  applyStyle(mainStyle);
   sessionStorage.setItem("mainStyle", JSON.stringify(mainStyle));
+
+  word.innerHTML = value || randomObject(words);
   sessionStorage.setItem("wordValue", word.innerHTML);
 }
 
-function applyStyle(mainStyle) { 
-  main.style.backgroundColor = mainStyle.backgroundColor;
-  main.style.color = mainStyle.color;
-  main.style.textShadow = mainStyle.textShadow; 
-} 
-
-// returns whether the state was restored
 function restoreState() { 
   let mainStyle = JSON.parse(sessionStorage.getItem("mainStyle"));
+  if (mainStyle) applyStyle(mainStyle);
+
   let wordValue = sessionStorage.getItem("wordValue");
-  if (mainStyle && wordValue) { 
-    applyStyle(mainStyle); 
-    word.innerHTML = wordValue; 
-    return true; 
-  } else {
-    return false;
-  }
+  if (wordValue) word.innerHTML = wordValue;
 }
 
-async function animateTextIn() {
-  word.style.animationName = "dissolve-in";
-  main.style.animationName = "fade-in";
-  
-  await sleep(1); // wait one second for the animation to complete
-}
-
-async function animateTextOut() {
-  word.style.animationName = "dissolve-out";
-  main.style.animationName = "fade-out";
-  
-  await sleep(1); // wait one second for the animation to complete
-}
-
-async function playVideo() {
-  let url = videoLink + randomNumber(0, 9) + ".mpd";
-  console.log("playing", url);
-  try {
-    await senza.remotePlayer.load(url);
-    await senza.remotePlayer.play();
-  } catch (e) {
-    console.error("error playing", e)
-  }
+function applyStyle(mainStyle) {
+  main.style.backgroundColor = mainStyle.backgroundColor;
+  main.style.color = mainStyle.color;
+  main.style.textShadow = mainStyle.textShadow;
 }
 
 function shuffleArray(array) {
