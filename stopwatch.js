@@ -4,7 +4,13 @@ class Stopwatch {
     this.banner = null;
     this.interval = null;
     this.restore();
-    
+
+    senza.lifecycle.addEventListener("beforestatechange", async (event) => {
+      if (event.state === "background") {
+        await this.willMoveToBackground();
+      }
+    });
+
     senza.lifecycle.addEventListener("onstatechange", (event) => {
       if (event.state === "background") {
         this.movedToBackground();
@@ -12,7 +18,7 @@ class Stopwatch {
         this.movedToForeground();
       }
     });
-    
+
     this.createBanner();
     this.start();
   }
@@ -22,7 +28,7 @@ class Stopwatch {
     this.background = parseInt(sessionStorage.getItem("stopwatch/background")) || 0;
     this.backgroundTime = parseInt(sessionStorage.getItem("stopwatch/backgroundTime")) || 0;
   }
-  
+
   save() {
     sessionStorage.setItem("stopwatch/foreground", `${this.foreground}`);
     sessionStorage.setItem("stopwatch/background", `${this.background}`);
@@ -49,6 +55,10 @@ class Stopwatch {
       this.background += Math.ceil((Date.now() - this.backgroundTime) / 1000);
     }
     this.start();
+  }
+
+  async willMoveToBackground() {
+    this.banner.style.color = 'red';
   }
 
   movedToBackground() {
@@ -81,13 +91,13 @@ class Stopwatch {
     this.banner.innerHTML += `Background: ${this.formatTime(this.background)}<br>`;
     this.banner.innerHTML += `${'&nbsp;'.repeat(4)} Ratio: ${ratio.toFixed(2)}%`;
   }
-  
+
   formatTime(seconds) {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return String(hours) + ':' + 
-      String(minutes).padStart(2, '0') + ':' + 
+    return String(hours) + ':' +
+      String(minutes).padStart(2, '0') + ':' +
       String(secs).padStart(2, '0');
   }
 }
