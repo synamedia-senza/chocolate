@@ -59,10 +59,10 @@ class Stopwatch {
 
   async willMoveToBackground() {
     this.banner.style.color = 'red';
+    await this.sleep(0.025);
   }
 
   movedToBackground() {
-    this.banner.style.color = 'red';
     this.backgroundTime = Date.now();
     this.stop();
     this.save();
@@ -99,6 +99,10 @@ class Stopwatch {
     return String(hours) + ':' +
       String(minutes).padStart(2, '0') + ':' +
       String(secs).padStart(2, '0');
+  }
+
+  async sleep(seconds) {
+    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
   }
 }
 
