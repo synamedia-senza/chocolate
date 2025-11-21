@@ -21,7 +21,10 @@ window.addEventListener("load", async () => {
       showWord();
     }
 
-    senza.lifecycle.configure({autoBackground: {enabled: false}});
+    senza.lifecycle.configure({
+      autoBackground: {enabled: false}},
+      autoSuspend: {enabled: false}
+    });
     senza.remotePlayer.addEventListener("ended", () => showWord());
     senza.alarmManager.addEventListener("hideWord", (e) => hideWord());
     
