@@ -1,9 +1,9 @@
-// either import the Senza SDK using a script tag, or call 
+// either import the Senza SDK using a script tag, or call
 // `import * as senza from "senza-sdk"` before importing this file
 
 window.dataLayer = window.dataLayer || [];
 
-function gtag() { 
+function gtag() {
   dataLayer.push(arguments);
 }
 
@@ -16,18 +16,19 @@ class SenzaAnalytics {
     lifecycle: {raw: false, summary: true},
     player: {raw: false, summary: true}
   };
- 
+
   constructor() {
     this.banner = null;
     this.interval = null;
     this.restoreLifecycleState();
-    
+    this.restorePlayerState();
+
     senza.lifecycle.addEventListener("beforestatechange", async (event) => {
       if (event.state === "background") {
         await this.willMoveToBackground();
       }
     });
-    
+
     senza.lifecycle.addEventListener("onstatechange", (event) => {
       if (event.state === "background") {
         this.movedToBackground();
@@ -35,31 +36,31 @@ class SenzaAnalytics {
         this.movedToForeground();
       }
     });
-    
+
     senza.lifecycle.addEventListener("userdisconnected", async () => {
       await this.playerSessionEnd("session_end", { awaitDelivery: true });
       await this.lifecycleSessionEnd();
     });
-    
+
     this.createBanner();
     this.startLifecycleTimer();
   }
-  
+
   async init(app, sparseConfig = {}) {
     this.configure(sparseConfig);
-    
+
     console.log("analytics.config", this.config);
-    
+
     if (this.config.google.gtag) {
       const gtagScript = document.createElement("script");
       gtagScript.async = true;
       gtagScript.src = `https://www.googletagmanager.com/gtag/js?id=${this.config.google.gtag}`;
       document.head.appendChild(gtagScript);
     }
-  
+
     let props = { app };
     copyValues(props, this.config.userInfo);
-    
+
     if (senza.isRunningE2E()) {
       const deviceInfo = senza.deviceManager.deviceInfo;
       copyValues(props, deviceInfo, ["countryCode", "tenant", "community", "connectionType"]);
@@ -67,12 +68,12 @@ class SenzaAnalytics {
     } else {
       props["connection_type"] = "browser";
     }
-    
+
     if (this.config.ipdata.apikey) {
       this.ipData = await this.getLocation(this.config.ipdata.apikey);
       copyValues(props, this.ipData, ["city", "region", "country_code"]);
     }
-    
+
     gtag('js', new Date());
     gtag('config', this.config.google.gtag);
     gtag('set', 'user_properties', props);
@@ -84,30 +85,30 @@ class SenzaAnalytics {
   configure(sparseConfig) {
     deepMerge(this.config, sparseConfig);
   }
-    
+
   async getLocation(ipDataAPIKey) {
     let ipAddress = senza.isRunningE2E() ? senza.deviceManager.deviceInfo.clientIp : "";
     let json = await (await fetch(`https://api.ipdata.co/${ipAddress}?api-key=${ipDataAPIKey}`)).json();
     return json;
   }
-  
+
   logEvent(eventName, data = {}) {
     data = {...data,
-      debug_mode: this.config.google.debug,       
+      debug_mode: this.config.google.debug,
       transport_type: 'beacon',
     };
     gtag('event', eventName, data)
     console.log('event', eventName, data);
   }
-  
+
   //// LIFECYCLE ////
-  
+
   restoreLifecycleState() {
     this.foreground = parseInt(sessionStorage.getItem("stopwatch/foreground")) || 0;
     this.background = parseInt(sessionStorage.getItem("stopwatch/background")) || 0;
     this.backgroundTime = parseInt(sessionStorage.getItem("stopwatch/backgroundTime")) || 0;
   }
-  
+
   saveLifecycleState() {
     sessionStorage.setItem("stopwatch/foreground", `${this.foreground}`);
     sessionStorage.setItem("stopwatch/background", `${this.background}`);
@@ -147,6 +148,7 @@ class SenzaAnalytics {
     this.backgroundTime = Date.now();
     this.stopLifecycleTimer();
     this.saveLifecycleState();
+    this.savePlayerState();
     this.logLifecycleEvent("background");
   }
 
@@ -209,28 +211,70 @@ class SenzaAnalytics {
       this.banner.innerHTML += `${'&nbsp;'.repeat(4)} Ratio: ${ratio.toFixed(2)}%`;
     }
   }
-  
+
   showStopwatch() {
     this.banner.style.opacity = 1;
   }
-  
+
   hideStopwatch() {
     this.banner.style.opacity = 0;
   }
-  
+
+  async sleep(seconds) {
+    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+  }
+
   //// PLAYER ////
-  
+
+  playerStorageKey = "player/session";
+
+  restorePlayerState() {
+    try {
+      const raw = sessionStorage.getItem(this.playerStorageKey);
+      this._restoredPlayerCore = raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      this._restoredPlayerCore = null;
+    }
+  }
+
+  savePlayerState() {
+    const s = this._playerSession;
+    if (!s) return;
+
+    const core = {
+      src: s.url?.() || s.meta?.src || "",
+      startedAt: s.startedAt,
+      watchedMs: s.watchedMs,
+      lastPlayStart: s.lastPlayStart,
+      lastTime: s.lastTime,
+      metaSnapshot: s.meta || {},
+      sent: s.sent,
+      active: s.active,
+    };
+
+    try {
+      sessionStorage.setItem(this.playerStorageKey, JSON.stringify(core));
+    } catch (_) {}
+  }
+
+  clearPlayerState() {
+    try {
+      sessionStorage.removeItem(this.playerStorageKey);
+    } catch (_) {}
+    this._restoredPlayerCore = null;
+  }
+
  /** Track events in the Shaka player and the media element.
   * The third argument can be either an object with media properties,
   * or an (async) function that takes the URL of a stream and returns its properties.
-  * 
+  *
   * If config.player.raw, sends all low-level events (play, pause, skip, etc.)
   * If config.player.summary, sends just one player_session_end event per stream watched.
-  * 
-  * Works equally well with regular Shaka or the Senza Shaka subclass. 
-  * In the latter case it is sufficient to follow the local player because 
+  *
+  * Works equally well with regular Shaka or the Senza Shaka subclass.
+  * In the latter case it is sufficient to follow the local player because
   * we know the remote player is simply following what hte local player is doing.
-  * 
+  *
   * If using the remote player directly without a local player, use trackRemotePlayerEvents() instead.
   **/
   trackPlayerEvents(player, media, metaOrFn = {}) {
@@ -240,6 +284,7 @@ class SenzaAnalytics {
       if (this._playerSession.lastPlayStart == null) {
         this._playerSession.lastPlayStart = Date.now();
       }
+      this.savePlayerState();
       if (this.config.player.raw) {
         this.logEvent("player_state", {
           state: "playing",
@@ -256,6 +301,7 @@ class SenzaAnalytics {
         this._playerSession.watchedMs += Date.now() - this._playerSession.lastPlayStart;
         this._playerSession.lastPlayStart = null;
       }
+      this.savePlayerState();
       if (this.config.player.raw && state) {
         this.logEvent("player_state", {
           state,
@@ -268,6 +314,7 @@ class SenzaAnalytics {
 
     const onSeeking = () => {
       leavePlaying("seeking");
+      this.savePlayerState();
       if (this.config.player.raw) {
         this.logEvent("player_seek", {
           current_time: media.currentTime || 0,
@@ -314,10 +361,14 @@ class SenzaAnalytics {
       };
     };
 
+    const onPause   = () => leavePlaying("pause");
+    const onWaiting = () => leavePlaying("waiting");
+    const onStalled = () => leavePlaying("stalled");
+
     media.addEventListener("playing", enterPlaying);
-    media.addEventListener("pause",   () => leavePlaying("pause"));
-    media.addEventListener("waiting", () => leavePlaying("waiting"));
-    media.addEventListener("stalled", () => leavePlaying("stalled"));
+    media.addEventListener("pause",   onPause);
+    media.addEventListener("waiting", onWaiting);
+    media.addEventListener("stalled", onStalled);
     media.addEventListener("seeking", onSeeking);
     media.addEventListener("seeked",  onSeeked);
     media.addEventListener("ended",   onEnded);
@@ -331,7 +382,26 @@ class SenzaAnalytics {
     const __origLoad = player.load.bind(player);
 
     player.load = async (url, ...rest) => {
-      await this.playerSessionEnd("load_new_url");
+      const restored = this._restoredPlayerCore;
+      const isContinuation =
+        restored &&
+        restored.active &&
+        !restored.sent &&
+        restored.src === url;
+
+      if (!isContinuation) {
+        if (restored && restored.active && !restored.sent) {
+          this.logEvent("player_session_end", {
+            src: restored.src,
+            reason: "restart_abandoned",
+            started_at_ms: restored.startedAt,
+            watched_ms: restored.watchedMs || 0,
+            watched_sec: Math.round((restored.watchedMs || 0) / 1000),
+            ...snakeMeta(restored.metaSnapshot || {}),
+          });
+        }
+        await this.playerSessionEnd("load_new_url");
+      }
 
       const initialMeta = (typeof metaOrFn === "function")
         ? await resolveMeta(metaOrFn, { url, player, media })
@@ -341,6 +411,19 @@ class SenzaAnalytics {
       const result = await __origLoad(url, ...rest);
 
       beginSession(initialMeta, url);
+
+      if (isContinuation) {
+        this._playerSession.startedAt = restored.startedAt;
+        this._playerSession.watchedMs = restored.watchedMs || 0;
+        this._playerSession.lastPlayStart = restored.lastPlayStart;
+        this._playerSession.lastTime = restored.lastTime || 0;
+        if (!Object.keys(this._playerSession.meta || {}).length) {
+          this._playerSession.meta = restored.metaSnapshot || {};
+        }
+      }
+
+      this._restoredPlayerCore = null;
+      this.savePlayerState();
 
       // backfill duration when metadata becomes available
       const onLoadedMeta = () => {
@@ -359,6 +442,8 @@ class SenzaAnalytics {
         if (finalUri) this._playerSession.meta.src = finalUri;
       } catch (_) {}
 
+      this.savePlayerState();
+
       return result;
     };
 
@@ -366,22 +451,22 @@ class SenzaAnalytics {
     this._playerSession = this._playerSession || { active: false };
     this._playerSession.detach = () => {
       media.removeEventListener("playing", enterPlaying);
-      media.removeEventListener("pause",   () => leavePlaying("pause"));
-      media.removeEventListener("waiting", () => leavePlaying("waiting"));
-      media.removeEventListener("stalled", () => leavePlaying("stalled"));
+      media.removeEventListener("pause",   onPause);
+      media.removeEventListener("waiting", onWaiting);
+      media.removeEventListener("stalled", onStalled);
       media.removeEventListener("seeking", onSeeking);
       media.removeEventListener("seeked",  onSeeked);
       media.removeEventListener("ended",   onEnded);
     };
   }
-    
+
  /** Track events in the Remote Player when using it direclty.
   * The single argument can be either an object with media properties,
   * or an (async) function that takes the URL of a stream and returns its properties.
-  * 
+  *
   * If config.player.raw, sends all low-level events (play, pause, skip, etc.)
   * If config.player.summary, sends just one player_session_end event per stream watched.
-  * 
+  *
   * If using the (Senza) Shaka player, use trackPlayerEvents() instead.
   **/
   trackRemotePlayerEvents(metaOrFn = {}) {
@@ -415,6 +500,7 @@ class SenzaAnalytics {
       if (this._playerSession.lastPlayStart == null) {
         this._playerSession.lastPlayStart = Date.now();
       }
+      this.savePlayerState();
       if (this.config.player.raw) {
         this.logEvent("player_state", {
           state: "playing",
@@ -431,6 +517,7 @@ class SenzaAnalytics {
         this._playerSession.watchedMs += Date.now() - this._playerSession.lastPlayStart;
         this._playerSession.lastPlayStart = null;
       }
+      this.savePlayerState();
       if (this.config.player.raw && state) {
         this.logEvent("player_state", {
           state,
@@ -454,12 +541,14 @@ class SenzaAnalytics {
       }
     };
 
+    const onLoadModeChange = () => {
+      this.playerSessionEnd("load_new_url");
+    };
+
     player.addEventListener("loadedmetadata", onLoadedMeta, { passive: true });
     player.addEventListener("playing",        enterPlaying,  { passive: true });
     player.addEventListener("ended",          onEnded,       { passive: true });
-    player.addEventListener("onloadmodechange", () => {
-      this.playerSessionEnd("load_new_url");
-    }, { passive: true });
+    player.addEventListener("onloadmodechange", onLoadModeChange, { passive: true });
 
     const __orig = {
       load:   player.load.bind(player),
@@ -470,7 +559,26 @@ class SenzaAnalytics {
     };
 
     player.load = async (url, ...rest) => {
-      await this.playerSessionEnd("load_new_url");
+      const restored = this._restoredPlayerCore;
+      const isContinuation =
+        restored &&
+        restored.active &&
+        !restored.sent &&
+        restored.src === url;
+
+      if (!isContinuation) {
+        if (restored && restored.active && !restored.sent) {
+          this.logEvent("player_session_end", {
+            src: restored.src,
+            reason: "restart_abandoned",
+            started_at_ms: restored.startedAt,
+            watched_ms: restored.watchedMs || 0,
+            watched_sec: Math.round((restored.watchedMs || 0) / 1000),
+            ...snakeMeta(restored.metaSnapshot || {}),
+          });
+        }
+        await this.playerSessionEnd("load_new_url");
+      }
 
       const initialMeta = (typeof metaOrFn === "function")
         ? await resolveMeta(metaOrFn, { url, player })
@@ -480,6 +588,20 @@ class SenzaAnalytics {
       const r = await __orig.load(url, ...rest);
 
       beginSession(initialMeta, url);
+
+      if (isContinuation) {
+        this._playerSession.startedAt = restored.startedAt;
+        this._playerSession.watchedMs = restored.watchedMs || 0;
+        this._playerSession.lastPlayStart = restored.lastPlayStart;
+        this._playerSession.lastTime = restored.lastTime || 0;
+        if (!Object.keys(this._playerSession.meta || {}).length) {
+          this._playerSession.meta = restored.metaSnapshot || {};
+        }
+      }
+
+      this._restoredPlayerCore = null;
+      this.savePlayerState();
+
       try {
         const finalUri = player.getAssetUri?.();
         if (finalUri) this._playerSession.meta.src = finalUri;
@@ -499,7 +621,7 @@ class SenzaAnalytics {
         player.removeEventListener("loadedmetadata", onLoadedMeta);
         player.removeEventListener("playing", enterPlaying);
         player.removeEventListener("ended", onEnded);
-        player.removeEventListener("onloadmodechange", () => {});
+        player.removeEventListener("onloadmodechange", onLoadModeChange);
       } catch (_) {}
     };
   }
@@ -507,7 +629,8 @@ class SenzaAnalytics {
   _beginPlayerSession(player, media, initialMeta = {}, urlHint = "") {
     this._playerSession = {
       active: true,
-      media,                        
+      media,
+
       remote: media ? null : player,
       sent: false,
       url: () =>
@@ -521,7 +644,7 @@ class SenzaAnalytics {
       lastTime: 0,
     };
   }
-  
+
   // Return a Promise; resolve immediately unless caller opts to await delivery.
   playerSessionEnd(reason = "unknown", { awaitDelivery = false, detachListeners = false } = {}) {
     return new Promise((resolve) => {
@@ -577,9 +700,15 @@ class SenzaAnalytics {
       if (detachListeners) {
         try { s.detach?.(); } catch (_) {}
       }
+      // Persist or clear depending on whether this is a terminal end.
+      if (reason === "ended" || reason === "session_end" || reason === "userdisconnected") {
+        this.clearPlayerState();
+      } else {
+        this.savePlayerState();
+      }
     });
   }
-      
+
   _safeMediaTime() {
     const s = this._playerSession;
     try {
@@ -588,7 +717,7 @@ class SenzaAnalytics {
     } catch (_) {}
     return 0;
   }
-    
+
   sendPlayerSummary(reason) {
     const s = this._playerSession;
     if (!s) return;
@@ -653,7 +782,7 @@ class SenzaAnalytics {
       initialMeta = await resolveMeta(provider, ctx);
     } else if (provider && typeof provider === "object") {
       initialMeta = provider;
-    }  
+    }
 
     if (!initialMeta.src) {
       initialMeta.src = s.url();
@@ -720,18 +849,14 @@ function deepMerge(target, source) {
     }
   }
   return target;
-
-  async function sleep(seconds) {
-    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
-  }
 }
 
 function formatTime(seconds) {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  return String(hours) + ':' + 
-    String(minutes).padStart(2, '0') + ':' + 
+  return String(hours) + ':' +
+    String(minutes).padStart(2, '0') + ':' +
     String(secs).padStart(2, '0');
 }
 
