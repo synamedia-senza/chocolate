@@ -101,7 +101,6 @@ class SenzaAnalytics {
   logEvent(eventName, data = {}) {
     data = {...data,
       debug_mode: this.config.google.debug,
-      transport_type: 'beacon',
     };
     gtag('event', eventName, data)
     console.log('analytics.logEvent', eventName, data);
@@ -183,6 +182,7 @@ class SenzaAnalytics {
           setTimeout(resolve, 3000);
         };
         message.event_timeout = 5000;
+        message.transport_type = 'beacon';
         this.logEvent("lifecycle_session_end", message);
       } else {
         resolve();
@@ -404,6 +404,7 @@ class SenzaAnalytics {
             started_at_ms: restored.startedAt,
             watched_ms: restored.watchedMs || 0,
             watched_sec: Math.round((restored.watchedMs || 0) / 1000),
+            transport_type: 'beacon',
             ...snakeMeta(restored.metaSnapshot || {}),
           });
         }
@@ -583,6 +584,7 @@ class SenzaAnalytics {
             started_at_ms: restored.startedAt,
             watched_ms: restored.watchedMs || 0,
             watched_sec: Math.round((restored.watchedMs || 0) / 1000),
+            transport_type: 'beacon',
             ...snakeMeta(restored.metaSnapshot || {}),
           });
         }
