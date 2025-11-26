@@ -9,13 +9,11 @@ const colors = [
   "#D2691E", // caramel
 ];
 
-let stopwatch;
+import analytics from './analytics.js';
 
 window.addEventListener("load", async () => {
   try {
     await senza.init();
-
-    stopwatch = new Stopwatch();
 
     if (senza.lifecycle.connectReason == senza.lifecycle.ConnectReason.INITIAL_CONNECTION) {
       showWord();
@@ -28,11 +26,51 @@ window.addEventListener("load", async () => {
     senza.remotePlayer.addEventListener("ended", () => showWord());
     senza.alarmManager.addEventListener("hideWord", (e) => hideWord());
     
+    let config = await loadAnalyticsConfig();
+    await analytics.init("Chocolate", {
+      google: {gtag: config.googleAnalyticsId, debug: true},
+      ipdata: {apikey: config.ipDataAPIKey},
+      userInfo: {chocolate: "mmmmmmm"},
+      lifecycle: {raw: false, summary: true},
+      player: {raw: false, summary: true}
+    });
+    analytics.trackRemotePlayerEvents(getMetadata);
+    analytics.showStopwatch();
+
     senza.uiReady();
   } catch (error) {
     console.error(error);
   }
 });
+
+const descriptions = {
+  "chocolate0": "A stream of molten chocolate.",
+  "chocolate1": "Chunks of chocolate flying in the air.",
+  "chocolate2": "A few chunks of chocolate falling down.",
+  "chocolate3": "Chocolate shavings falling on a stack of chocolate.",
+  "chocolate4": "A scoop of small chunks of chocolate.",
+  "chocolate5": "Chocolate shavings falling in front of a big stack of chocolate.",
+  "chocolate6": "Just lots of chocolate shavings.",
+  "chocolate7": "More chocolate shavings falling on two stacks of chocolate.",
+  "chocolate8": "Tiny flakes falling on some big chunky pieces of chocolate.",
+  "chocolate9": "An epic explosion of chocoalte chunks!"
+}
+
+function getMetadata(ctx) {
+  const contentId = filename(ctx.url);
+  return {contentId, description: descriptions[contentId]};
+}
+
+async function loadAnalyticsConfig(url = "./config.json") {
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return {};
+    return await res.json();
+  } catch {
+    console.warn("Analytics config.json not found");
+    return {};
+  }
+}
 
 // Step 1
 async function showWord(value = null) {
@@ -100,6 +138,8 @@ function updateState(value = null) {
 
   word.innerHTML = value || randomObject(words);
   sessionStorage.setItem("wordValue", word.innerHTML);
+
+  analytics.logEvent("word", {"word": word.innerHTML});
 }
 
 function restoreState() { 
@@ -133,4 +173,9 @@ function randomObject(array) {
   if (array.length === 0) return null;
   const randomIndex = Math.floor(Math.random() * array.length);
   return array[randomIndex];
+}
+
+function filename(url) {
+  const parts = url.split('/').pop() || '';
+  return parts.replace(/\.[^/.]+$/, '');
 }
