@@ -26,14 +26,7 @@ window.addEventListener("load", async () => {
     senza.remotePlayer.addEventListener("ended", () => showWord());
     senza.alarmManager.addEventListener("hideWord", (e) => hideWord());
     
-    let config = {};
-    try {
-      const module = await import("./config.json", {assert: {type: "json"}});
-      config = module.default;
-    } catch (error) {
-      console.warn("config.json not found");
-    }
-
+    let config = await loadAnalyticsConfig();
     await analytics.init("Chocolate", {
       google: {gtag: config.googleAnalyticsId, debug: true},
       ipdata: {apikey: config.ipDataAPIKey},
@@ -66,6 +59,17 @@ const descriptions = {
 function getMetadata(ctx) {
   const contentId = filename(ctx.url);
   return {contentId, description: descriptions[contentId]};
+}
+
+async function loadAnalyticsConfig(url = "./config.json") {
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return {};
+    return await res.json();
+  } catch {
+    console.warn("Analytics config.json not found");
+    return {};
+  }
 }
 
 // Step 1
