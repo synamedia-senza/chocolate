@@ -1,4 +1,4 @@
-const videoLink = "https://senza-developer.s3.amazonaws.com/streams/chocolate/chocolate";
+const videoLink = "https://senzadev.net/streams/chocolate/chocolate";
 const words = ["chocolate", "delicious", "delightful", "dark", "rich",
   "smooth", "creamy", "velvety", "lovely", "coffee", "mocha"];
 const colors = [
